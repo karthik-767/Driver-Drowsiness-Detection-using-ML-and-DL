@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Streaming</title>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <style>
+        #videoCanvas {
+            width: 640px;
+            height: 480px;
+            border: 1px solid black;
+        }
+        body
+        {
+            margin-left: 400px;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="margin-left: 21%;">Live Streaming</h1>
+    <canvas id="videoCanvas" width="640" height="480"></canvas><br><br>
+    <button id="calibrateBtn">Start Calibration</button>
+    <button id="startInferenceBtn" disabled>Start Inference</button>
+    <button id="stopBtn" disabled>Stop</button>
+    <button id="reloadBtn">Restart</button>
+    <script>
+        const socket = io.connect('http://127.0.0.1:5000/');
+        const videoCanvas = document.getElementById('videoCanvas');
+        const context = videoCanvas.getContext('2d');
+
+        let earsNorm, marsNorm, pucsNorm, moesNorm;
+
+        socket.on('calibration_complete', (data) => {
+            earsNorm = data.ears_norm;
+            marsNorm = data.mars_norm;
+            pucsNorm = data.pucs_norm;
+            moesNorm = data.moes_norm;
+            document.getElementById('startInferenceBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+        });
+
+        socket.on('video_frame', (data) => {
+            const image = new Image();
+            image.src = 'data:image/jpeg;base64,' + data.image;
+            image.onload = () => {
+                context.drawImage(image, 0, 0, videoCanvas.width, videoCanvas.height);
+            };
+        });
+
+        document.getElementById('calibrateBtn').addEventListener('click', () => {
+            socket.emit('start_calibration');
+        });
+
+        document.getElementById('startInferenceBtn').addEventListener('click', () => {
+            socket.emit('start_inference', {
+                ears_norm: earsNorm,
+                mars_norm: marsNorm,
+                pucs_norm: pucsNorm,
+                moes_norm: moesNorm
+            });
+            document.getElementById('startInferenceBtn').disabled = true;
+            document.getElementById('calibrateBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+        });
+
+        document.getElementById('stopBtn').addEventListener('click', () => {
+            socket.emit('stop_application');
+        });
+        document.getElementById('reloadBtn').addEventListener('click', function() {
+            // Reload the page
+            window.location.reload();
+
+        });
+    </script>
+</body>
+</html>
